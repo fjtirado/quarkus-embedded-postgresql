@@ -1,0 +1,28 @@
+
+:summaryTableId: quarkus-embedded-postgresql-embedded-postgre-sql
+[.configuration-legend]
+icon:lock[title=Fixed at build time] Configuration property fixed at build time - All other configuration properties are overridable at runtime
+[.configuration-reference.searchable, cols="80,.^10,.^10"]
+|===
+
+h|[[quarkus-embedded-postgresql-embedded-postgre-sql_configuration]]link:#quarkus-embedded-postgresql-embedded-postgre-sql_configuration[Configuration property]
+
+h|Type
+h|Default
+
+a| [[quarkus-embedded-postgresql-embedded-postgre-sql_quarkus.embedded.postgresql.embedded-postgre-sql.data.dir]]`link:#quarkus-embedded-postgresql-embedded-postgre-sql_quarkus.embedded.postgresql.embedded-postgre-sql.data.dir[quarkus.embedded.postgresql.embedded-postgre-sql.data.dir]`
+
+[.description]
+--
+Directory where persistence information is hold
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_EMBEDDED_POSTGRESQL_EMBEDDED_POSTGRE_SQL_DATA_DIR+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_EMBEDDED_POSTGRESQL_EMBEDDED_POSTGRE_SQL_DATA_DIR+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
+
+|===
