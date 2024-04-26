@@ -1,18 +1,17 @@
 package io.quarkiverse.embedded.postgresql;
 
-import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceProvider.DEFAULT_DATABASE;
-import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceProvider.DEFAULT_PASSWORD;
-import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceProvider.DEFAULT_USERNAME;
+import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceFactory.*;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
@@ -20,7 +19,6 @@ import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.jboss.logging.Logger;
 
-import io.quarkus.datasource.runtime.DataSourcesBuildTimeConfig;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
@@ -31,17 +29,10 @@ public class EmbeddedPostgreSQLRecorder {
 
     private static final Logger logger = Logger.getLogger(EmbeddedPostgreSQLRecorder.class);
 
-    public void startPostgres(ShutdownContext shutdownContext,
-            DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig) throws IOException {
+    public void startPostgres(ShutdownContext shutdownContext, int port, Map<String, String> dbNames) {
         Builder builder = EmbeddedPostgres.builder();
         Config config = ConfigProvider.getConfig();
-
-        config.getOptionalValue("quarkus.embedded.postgresql.port", Integer.class).ifPresent(
-                port -> {
-                    logger.infov("PG port will be set to {0}", port);
-                    builder.setPort(port);
-                });
-
+        builder.setPort(port);
         builder.setConnectConfig("stringtype",
                 config.getOptionalValue("quarkus.embedded.postgresql.stringtype", String.class).orElse("unspecified"));
 
@@ -57,7 +48,12 @@ public class EmbeddedPostgreSQLRecorder {
             builder.setCleanDataDirectory(false);
         });
 
-        EmbeddedPostgres pg = builder.start();
+        EmbeddedPostgres pg;
+        try {
+            pg = builder.start();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         logger.infov(
                 "Embedded Postgres started at port \"{0,number,#}\" with database \"{1}\", user \"{2}\" and password \"{3}\"",
                 pg.getPort(), DEFAULT_DATABASE, DEFAULT_USERNAME, DEFAULT_PASSWORD);
@@ -68,28 +64,17 @@ public class EmbeddedPostgreSQLRecorder {
                 logger.warn("Error shutting down embedded postgres", e);
             }
         });
-        EmbeddedPostgreSQLConfigSourceProvider
-                .getConfig(new StartupInfo(pg.getPort(), createDatabases(pg, dataSourcesBuildTimeConfig, DEFAULT_USERNAME)))
-                .forEach((k, v) -> {
-                    logger.infov("Setting {0} system property to {1}", k, v);
-                    System.setProperty(k, v);
-                });
+        createDatabases(pg, dbNames.values(), DEFAULT_USERNAME);
     }
 
-    private Map<String, String> createDatabases(EmbeddedPostgres pg, DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig,
+    private void createDatabases(EmbeddedPostgres pg, Collection<String> dbNames,
             String userName) {
         pg.getDatabase(DEFAULT_USERNAME, DEFAULT_DATABASE);
-        return dataSourcesBuildTimeConfig.dataSources().entrySet().stream()
-                .filter(ds -> ds.getValue().dbKind().filter(kind -> kind.equals("postgresql")).isPresent())
-                .map(Map.Entry::getKey)
-                .map(ds -> Map.entry(ds, createDatabase(pg.getPostgresDatabase(), ds, userName)))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        dbNames.forEach(ds -> createDatabase(pg.getPostgresDatabase(), ds, userName));
     }
 
-    private String createDatabase(final DataSource dataSource, final String dbName, final String userName) {
-        Objects.requireNonNull(dbName);
+    private void createDatabase(final DataSource dataSource, final String sanitizedDbName, final String userName) {
         Objects.requireNonNull(userName);
-        String sanitizedDbName = PostgreSQLSyntaxUtils.sanitizeDbName(dbName);
         String createDbStatement = String.format(
                 "SELECT 'CREATE DATABASE %s OWNER %s' as createQuery WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '%s')",
                 sanitizedDbName, userName, sanitizedDbName);
@@ -99,9 +84,8 @@ public class EmbeddedPostgreSQLRecorder {
             if (result.next()) {
                 stmt.executeUpdate(result.getString("createQuery"));
             }
-            return sanitizedDbName;
         } catch (SQLException e) {
-            throw new IllegalStateException("Error creating DB " + dbName, e);
+            throw new IllegalStateException("Error creating DB " + sanitizedDbName, e);
         }
     }
 }

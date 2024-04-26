@@ -1,11 +1,11 @@
 package io.quarkiverse.embedded.postgresql.deployment;
 
+import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceFactory.*;
 import static io.quarkus.deployment.annotations.ExecutionTime.RUNTIME_INIT;
-
-import java.io.IOException;
 
 import io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConnectionConfigurer;
 import io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLRecorder;
+import io.quarkiverse.embedded.postgresql.EmbeddedRuntimeConfigBuilder;
 import io.quarkus.agroal.spi.JdbcDriverBuildItem;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
@@ -18,6 +18,8 @@ import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.IndexDependencyBuildItem;
+import io.quarkus.deployment.builditem.RunTimeConfigBuilderBuildItem;
+import io.quarkus.deployment.builditem.RunTimeConfigurationDefaultBuildItem;
 import io.quarkus.deployment.builditem.ServiceStartBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourcePatternsBuildItem;
@@ -35,9 +37,17 @@ class EmbeddedPostgreSQLProcessor {
     @BuildStep
     @Record(RUNTIME_INIT)
     ServiceStartBuildItem startService(EmbeddedPostgreSQLRecorder recorder, ShutdownContextBuildItem shutdown,
-            DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig) throws IOException {
-        recorder.startPostgres(shutdown, dataSourcesBuildTimeConfig);
+            DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig,
+            BuildProducer<RunTimeConfigurationDefaultBuildItem> configProducer) {
+        final int port = getPort();
+        recorder.startPostgres(shutdown, port, getDBNames(dataSourcesBuildTimeConfig));
+        configProducer.produce(new RunTimeConfigurationDefaultBuildItem(PORT_PROPERTY, Integer.toString(port)));
         return new ServiceStartBuildItem(FEATURE);
+    }
+
+    @BuildStep
+    RunTimeConfigBuilderBuildItem runtimeConfigBuilder() {
+        return new RunTimeConfigBuilderBuildItem(EmbeddedRuntimeConfigBuilder.class.getName());
     }
 
     @BuildStep
