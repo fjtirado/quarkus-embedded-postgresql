@@ -2,14 +2,10 @@ package io.quarkiverse.embedded.postgresql;
 
 import static java.lang.String.format;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.eclipse.microprofile.config.spi.ConfigSource;
-import org.eclipse.microprofile.config.spi.ConfigSourceProvider;
-
-public class EmbeddedPostgreSQLConfigSourceProvider implements ConfigSourceProvider {
+public class EmbeddedPostgreSQLConfigSourceProvider {
 
     static final String QUARKUS_DATASOURCE_REACTIVE_URL = "quarkus.datasource.reactive.url";
     static final String QUARKUS_DATASOURCE_JDBC_URL = "quarkus.datasource.jdbc.url";
@@ -24,14 +20,8 @@ public class EmbeddedPostgreSQLConfigSourceProvider implements ConfigSourceProvi
     static final String DEFAULT_JDBC_URL = "jdbc:postgresql://localhost:%d/%s?stringtype=unspecified";
     static final String DEFAULT_USERNAME = "postgres";
     static final String DEFAULT_PASSWORD = "postgres";
-    private StartupInfo startupInfo;
 
-    public EmbeddedPostgreSQLConfigSourceProvider(StartupInfo startupInfo) {
-        this.startupInfo = startupInfo;
-    }
-
-    @Override
-    public Iterable<ConfigSource> getConfigSources(ClassLoader forClassLoader) {
+    public static Map<String, String> getConfig(StartupInfo startupInfo) {
         Map<String, String> allConfigs = new HashMap<>();
 
         startupInfo.getDatabases().forEach((key, value) -> {
@@ -48,6 +38,6 @@ public class EmbeddedPostgreSQLConfigSourceProvider implements ConfigSourceProvi
         allConfigs.put(QUARKUS_DATASOURCE_USERNAME, DEFAULT_USERNAME);
         allConfigs.put(QUARKUS_DATASOURCE_PASSWORD, DEFAULT_PASSWORD);
 
-        return Collections.singleton(new EmbeddedPostgreSQLConfigSource(allConfigs));
+        return allConfigs;
     }
 }

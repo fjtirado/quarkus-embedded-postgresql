@@ -18,11 +18,9 @@ import javax.sql.DataSource;
 
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
-import org.eclipse.microprofile.config.spi.ConfigSourceProvider;
 import org.jboss.logging.Logger;
 
 import io.quarkus.datasource.runtime.DataSourcesBuildTimeConfig;
-import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.ShutdownContext;
 import io.quarkus.runtime.annotations.Recorder;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
@@ -33,7 +31,7 @@ public class EmbeddedPostgreSQLRecorder {
 
     private static final Logger logger = Logger.getLogger(EmbeddedPostgreSQLRecorder.class);
 
-    public RuntimeValue<StartupInfo> startPostgres(ShutdownContext shutdownContext,
+    public void startPostgres(ShutdownContext shutdownContext,
             DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig) throws IOException {
         Builder builder = EmbeddedPostgres.builder();
         Config config = ConfigProvider.getConfig();
@@ -70,15 +68,19 @@ public class EmbeddedPostgreSQLRecorder {
                 logger.warn("Error shutting down embedded postgres", e);
             }
         });
-        return new RuntimeValue<>(
-                new StartupInfo(pg.getPort(), createDatabases(pg, dataSourcesBuildTimeConfig, DEFAULT_USERNAME)));
+        EmbeddedPostgreSQLConfigSourceProvider
+                .getConfig(new StartupInfo(pg.getPort(), createDatabases(pg, dataSourcesBuildTimeConfig, DEFAULT_USERNAME)))
+                .forEach((k, v) -> {
+                    logger.infov("Setting {0} system property to {1}", k, v);
+                    System.setProperty(k, v);
+                });
     }
 
     private Map<String, String> createDatabases(EmbeddedPostgres pg, DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig,
             String userName) {
         pg.getDatabase(DEFAULT_USERNAME, DEFAULT_DATABASE);
-        return dataSourcesBuildTimeConfig.namedDataSources.entrySet().stream()
-                .filter(ds -> Objects.equals(ds.getValue().dbKind.get(), "postgresql"))
+        return dataSourcesBuildTimeConfig.dataSources().entrySet().stream()
+                .filter(ds -> ds.getValue().dbKind().filter(kind -> kind.equals("postgresql")).isPresent())
                 .map(Map.Entry::getKey)
                 .map(ds -> Map.entry(ds, createDatabase(pg.getPostgresDatabase(), ds, userName)))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -101,9 +103,5 @@ public class EmbeddedPostgreSQLRecorder {
         } catch (SQLException e) {
             throw new IllegalStateException("Error creating DB " + dbName, e);
         }
-    }
-
-    public RuntimeValue<ConfigSourceProvider> configSources(RuntimeValue<StartupInfo> info) {
-        return new RuntimeValue<>(new EmbeddedPostgreSQLConfigSourceProvider(info.getValue()));
     }
 }
