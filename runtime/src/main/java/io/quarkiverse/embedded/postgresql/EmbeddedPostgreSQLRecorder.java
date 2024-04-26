@@ -1,6 +1,6 @@
 package io.quarkiverse.embedded.postgresql;
 
-import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceFactory.*;
+import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigUtils.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

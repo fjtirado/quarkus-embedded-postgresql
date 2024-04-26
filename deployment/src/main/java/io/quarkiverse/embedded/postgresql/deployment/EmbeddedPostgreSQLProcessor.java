@@ -1,11 +1,12 @@
 package io.quarkiverse.embedded.postgresql.deployment;
 
-import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigSourceFactory.*;
+import static io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConfigUtils.*;
 import static io.quarkus.deployment.annotations.ExecutionTime.RUNTIME_INIT;
+
+import java.util.Map;
 
 import io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLConnectionConfigurer;
 import io.quarkiverse.embedded.postgresql.EmbeddedPostgreSQLRecorder;
-import io.quarkiverse.embedded.postgresql.EmbeddedRuntimeConfigBuilder;
 import io.quarkus.agroal.spi.JdbcDriverBuildItem;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
@@ -13,12 +14,12 @@ import io.quarkus.datasource.common.runtime.DatabaseKind;
 import io.quarkus.datasource.runtime.DataSourcesBuildTimeConfig;
 import io.quarkus.deployment.Capabilities;
 import io.quarkus.deployment.Capability;
+import io.quarkus.deployment.IsDevelopment;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.IndexDependencyBuildItem;
-import io.quarkus.deployment.builditem.RunTimeConfigBuilderBuildItem;
 import io.quarkus.deployment.builditem.RunTimeConfigurationDefaultBuildItem;
 import io.quarkus.deployment.builditem.ServiceStartBuildItem;
 import io.quarkus.deployment.builditem.ShutdownContextBuildItem;
@@ -34,20 +35,16 @@ class EmbeddedPostgreSQLProcessor {
         return new FeatureBuildItem(FEATURE);
     }
 
-    @BuildStep
+    @BuildStep(onlyIfNot = IsDevelopment.class)
     @Record(RUNTIME_INIT)
     ServiceStartBuildItem startService(EmbeddedPostgreSQLRecorder recorder, ShutdownContextBuildItem shutdown,
             DataSourcesBuildTimeConfig dataSourcesBuildTimeConfig,
             BuildProducer<RunTimeConfigurationDefaultBuildItem> configProducer) {
         final int port = getPort();
-        recorder.startPostgres(shutdown, port, getDBNames(dataSourcesBuildTimeConfig));
-        configProducer.produce(new RunTimeConfigurationDefaultBuildItem(PORT_PROPERTY, Integer.toString(port)));
+        Map<String, String> dbNames = getDBNames(dataSourcesBuildTimeConfig);
+        recorder.startPostgres(shutdown, port, dbNames);
+        getConfig(port, dbNames).forEach((k, v) -> configProducer.produce(new RunTimeConfigurationDefaultBuildItem(k, v)));
         return new ServiceStartBuildItem(FEATURE);
-    }
-
-    @BuildStep
-    RunTimeConfigBuilderBuildItem runtimeConfigBuilder() {
-        return new RunTimeConfigBuilderBuildItem(EmbeddedRuntimeConfigBuilder.class.getName());
     }
 
     @BuildStep

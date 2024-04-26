@@ -2,25 +2,16 @@ package io.quarkiverse.embedded.postgresql;
 
 import static java.lang.String.format;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.eclipse.microprofile.config.ConfigProvider;
-import org.eclipse.microprofile.config.spi.ConfigSource;
-import org.jboss.logging.Logger;
 
 import io.quarkus.datasource.runtime.DataSourcesBuildTimeConfig;
-import io.smallrye.config.ConfigSourceContext;
-import io.smallrye.config.ConfigSourceFactory;
-import io.smallrye.config.ConfigValue;
 
-public class EmbeddedPostgreSQLConfigSourceFactory
-        implements ConfigSourceFactory {
-
-    private static final Logger logger = Logger.getLogger(EmbeddedPostgreSQLConfigSourceFactory.class);
+public class EmbeddedPostgreSQLConfigUtils {
 
     static final String QUARKUS_DATASOURCE_REACTIVE_URL = "quarkus.datasource.reactive.url";
     static final String QUARKUS_DATASOURCE_JDBC_URL = "quarkus.datasource.jdbc.url";
@@ -36,11 +27,11 @@ public class EmbeddedPostgreSQLConfigSourceFactory
     static final String DEFAULT_USERNAME = "postgres";
     static final String DEFAULT_PASSWORD = "postgres";
 
-    public   static final String PORT_PROPERTY = "quarkus.embedded.postgresql.port";
+    static final String PORT_PROPERTY = "quarkus.embedded.postgresql.port";
 
     private static final int START_PORT = 5432;
 
-    private static Map<String, String> getConfig(int port, Map<String, String> dbNames) {
+    public static Map<String, String> getConfig(int port, Map<String, String> dbNames) {
         Map<String, String> allConfigs = new HashMap<>();
 
         dbNames.forEach((key, value) -> {
@@ -60,14 +51,9 @@ public class EmbeddedPostgreSQLConfigSourceFactory
         return allConfigs;
     }
 
-    private static int getPort(ConfigSourceContext context) {
-        ConfigValue value = context.getValue(PORT_PROPERTY);
-        return Integer.parseInt(value.getValue());
-    }
-
     public static int getPort() {
         return ConfigProvider.getConfig().getOptionalValue(PORT_PROPERTY, Integer.class)
-                .orElseGet(EmbeddedPostgreSQLConfigSourceFactory::getDefaultPort);
+                .orElseGet(EmbeddedPostgreSQLConfigUtils::getDefaultPort);
     }
 
     private static Integer getDefaultPort() {
@@ -80,11 +66,4 @@ public class EmbeddedPostgreSQLConfigSourceFactory
                 .map(Entry::getKey)
                 .collect(Collectors.toMap(e -> e, PostgreSQLSyntaxUtils::sanitizeDbName));
     }
-
-    @Override
-    public Iterable<ConfigSource> getConfigSources(ConfigSourceContext context) {
-        logger.info("PUTO FACTORY");
-        return Collections.singleton(new EmbeddedPostgreSQLConfigSource(getConfig(getPort(context), Collections.emptyMap())));
-    }
-
 }
